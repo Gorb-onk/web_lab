@@ -7,10 +7,7 @@ const cityMainTemplate = document.querySelector('#main-city')
 const dataBlockTemplate = document.querySelector('#weather-data-block')
 const loaderTemplate = document.querySelector('#loader')
 
-const apikey = 'ff37c2586fdf7285c6c3f9aefe1c3860'
 const defaultCityID = 498817
-
-
 
 const getCardinal = angle => {
     const degreePerDirection = 360 / 8;
@@ -29,22 +26,49 @@ const getCardinal = angle => {
 
 class Api {
     constructor() {
-        this.endpoint = 'https://api.openweathermap.org/data/2.5'
-    }
-    fetchWeatherGet(url) {
-        return  fetch(`${url}&appid=${apikey}`).then(res => res.json())
+        this.endpoint = 'http://localhost:3000'
     }
 
     weatherByString(str) {
-        return this.fetchWeatherGet(`${this.endpoint}/weather?q=${encodeURIComponent(str)}&units=metric`)
+        return fetch(`${this.endpoint}/weather/city?q=${encodeURIComponent(str)}`).then(res => res.json())
     }
 
     weatherById(id) {
-        return this.fetchWeatherGet(`${this.endpoint}/weather?id=${encodeURIComponent(id)}&units=metric`)
+        return fetch(`${this.endpoint}/weather/city?id=${encodeURIComponent(id)}`).then(res => res.json())
     }
 
     weatherByLatLon({latitude, longitude}) {
-        return this.fetchWeatherGet(`${this.endpoint}/weather?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&units=metric`)
+        return fetch(`${this.endpoint}/weather/coordinates?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`).then(res => res.json())
+    }
+
+    saveFavorite(id) {
+        return fetch(`${this.endpoint}/favorites`, {
+            method: "POST",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id
+            })
+        })
+    }
+
+    getFavorites() {
+        return fetch(`${this.endpoint}/favorites`).then(res => res.json())
+    }
+
+    removeFavorite(id) {
+        return fetch(`${this.endpoint}/favorites`, {
+            method: "DELETE",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id
+            })
+        }).then(res => res.json())
     }
 }
 
@@ -102,17 +126,6 @@ const param = (title, value) => {
 }
 
 const api = new Api()
-
-const saveCityToLS = (id) => {
-    let data = JSON.parse(localStorage.getItem('cities') || '[]')
-    data.push(id)
-    localStorage.setItem('cities', JSON.stringify(data))
-}
-
-const removeCityFromLS = (id) => {
-    let data = JSON.parse(localStorage.getItem('cities') || '[]')
-    localStorage.setItem('cities', JSON.stringify(data.filter(_=>parseInt(_, 10) !== parseInt(id, 10))))
-}
 
 const weatherMapper = (obj) => {
     const {main, name, wind, coord, id} = obj
@@ -199,29 +212,22 @@ async function initCurrentPosition() {
         data = await api.weatherById(defaultCityID)
     }
 
-    const lsData = await initFromLs()
-
     state.current = {
         ...state.current,
         ...weatherMapper(data),
         loading: false
     }
-    state.starred = [
-        ...lsData,
-    ]
 }
 
-async function initFromLs() {
-    let citiesLs = []
-    const lsData = JSON.parse(localStorage.getItem('cities'))
-    if (!lsData) return []
-    for (let item of lsData) {
-        if (item) {
-            const data = await api.weatherById(item)
-            citiesLs.push(weatherMapper(data))
-        }
+async function loadFavorites() {
+    const {list} = await api.getFavorites()
+    if (list)
+    {
+        state.starred = [...state.starred, ...list.map(_ => weatherMapper(_))]
     }
-    return citiesLs
+    else {
+        console.log(list)
+    }
 }
 
 async function onBtnAddClick(e) {
@@ -232,6 +238,8 @@ async function onBtnAddClick(e) {
     try {
         state.starred = [...state.starred, {loading:true}]
         const data = await api.weatherByString(val)
+        if (data.cod === '404')
+            throw new Error('not found')
         state.starred.pop()
         if(state.starred.map(_=>_.id).includes(data.id)) {
             inputAdd.disabled = false
@@ -239,19 +247,19 @@ async function onBtnAddClick(e) {
             state.starred = [...state.starred]
             return alert('Такой город уже есть!')
         }
-        saveCityToLS(data.id)
+        await api.saveFavorite(data.id)
         state.starred = [...state.starred, weatherMapper(data)]
     } catch(err) {
-        alert('Извините, что-то пошло не так')
+        state.starred.pop()
         state.starred = [...state.starred]
-        console.error(err)
+        alert('Извините, что-то пошло не так')
     }
     inputAdd.disabled = false
     inputAdd.value = ''
 }
-function onRemoveClick(id) {
+async function onRemoveClick(id) {
     state.starred = state.starred.filter(_=>_.id !== parseInt(id, 10))
-    removeCityFromLS(id)
+    await api.removeFavorite(id)
 }
 
 
@@ -261,6 +269,7 @@ function mainFunc() {
     addListener('current', renderBlockMain)
     addListener('starred', renderBlocksExtra)
     initCurrentPosition()
+    loadFavorites()
 }
 
 mainFunc()
