@@ -141,6 +141,13 @@ favoritesRouter.delete('/', async (req, res) => {
 app.use('/weather', weatherRouter)
 app.use('/favorites', favoritesRouter)
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`listening on ${PORT}`)
 })
+
+module.exports = {
+    app,
+    WeatherApi,
+    server,
+    Favorite
+}

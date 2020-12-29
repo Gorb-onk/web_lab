@@ -51,7 +51,7 @@ class Api {
             body: JSON.stringify({
                 id
             })
-        })
+        }).then(res => res.json())
     }
 
     getFavorites() {
@@ -103,7 +103,14 @@ let __state__ = {
     starred: []
 }
 
-const state = wrap(__state__)
+let state = wrap(__state__)
+
+function setState(someNewState) {
+    state = someNewState
+}
+function getState() {
+    return state
+}
 
 let updateListeners = {}
 
@@ -159,6 +166,7 @@ const renderBlockMain = () => {
     blockMain.innerHTML = "";
 
     renderCity(blockMain, cityMainTemplate, state.current)
+    return blockMain.innerHTML
 }
 
 const renderCity = (parentBlock, cityTemplate, city) => {
@@ -181,6 +189,7 @@ const renderCity = (parentBlock, cityTemplate, city) => {
     node.innerHTML = fillTemplate(node.innerHTML, values)
     const nodeImported = document.importNode(node.content, true)
     parentBlock.appendChild(nodeImported)
+    return parentBlock
 }
 
 const renderBlocksExtra = () => {
@@ -193,6 +202,7 @@ const renderBlocksExtra = () => {
             onRemoveClick(id)
         })
     })
+    return blockExtraWrapper.innerHTML
 }
 
 async function initCurrentPosition() {
@@ -273,3 +283,24 @@ function mainFunc() {
 }
 
 mainFunc()
+
+module.exports = {
+    loadFavorites,
+    initCurrentPosition,
+    renderBlockMain,
+    renderBlocksExtra,
+    renderStats,
+    weatherMapper,
+    Api,
+    getCardinal,
+    fillTemplate,
+    getCurrentPositionAsync,
+    wrap,
+    addListener,
+    updateHandler,
+    setState,
+    param,
+    getState,
+    onBtnAddClick,
+    onRemoveClick,
+}
